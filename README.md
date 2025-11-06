@@ -5,9 +5,11 @@ A testing utility for QuickBooks Desktop integrations. This is an internal tool,
 ## What This Does
 
 When you're building software that integrates with QuickBooks Desktop, you need a way to:
-- Quickly create test data (customers, invoices, sales receipts)
+- Quickly create test data (customers, invoices, sales receipts, statement charges)
+- Monitor transaction state changes in real-time
 - Verify that payment records and deposit accounts are correctly updated
-- Test state changes without manually clicking through QuickBooks
+- Test payment posting workflows without manually clicking through QuickBooks
+- Archive and clean up test data when done
 
 That's what this tool does. It talks directly to QuickBooks via QBXML/COM and lets you automate the testing workflow.
 
@@ -54,34 +56,78 @@ When you first open the app, go to the **Setup** tab (under Create Data) and cli
 
 If you don't have any test data yet, you can create customers from scratch, but it's faster to load what's already there.
 
-### Creating Test Invoices
+### Creating Test Transactions
 
-1. **Create Data tab** → **Invoice subtab**
+The tool supports three transaction types: **Invoices**, **Sales Receipts**, and **Statement Charges**.
+
+1. **Create Data tab** → Select transaction type subtab (Invoice, Sales Receipt, or Statement Charge)
 2. Select a customer (or create one first in the Customer subtab)
-3. Configure how many invoices you want and the line item totals
-4. Click **Create Invoice**
+3. Configure:
+   - Number of transactions to create
+   - Line items (for invoices/sales receipts)
+   - Amount range
+   - Date range
+   - Terms and class (for invoices)
+4. Click **Create Batch**
 
-The tool generates invoices with randomized line items using your actual QuickBooks items. Each invoice gets a unique ref number so you can track it later.
+The tool generates transactions with randomized data using your actual QuickBooks items, terms, and classes. Each transaction gets a unique ref number for tracking.
+
+**Statement Charges** are simpler - they create a single charge on the customer's statement without line items.
 
 ### Monitoring Changes
 
-Once you have some test invoices, you can monitor them to see when your integration changes their state:
+Once you have created transactions, you can monitor them to see when your integration changes their state:
 
 1. **Monitor Transactions tab**
 2. Set a check interval (how often to poll QuickBooks, in seconds)
 3. Click **Start Monitoring**
 
-The tool will periodically query QuickBooks for your invoices and detect when they change from Open to Closed (or vice versa). 
+The tool will periodically query QuickBooks for all your transactions (invoices, sales receipts, statement charges) and detect when they change from Open to Closed (or vice versa). All transaction types appear in the same monitoring table. 
 
 ### Verification
 
-When an invoice closes, the tool automatically checks if:
-- A payment record exists
-- The deposit account is set correctly
-- The payment amount <= the sale.
+When a transaction status changes (e.g., invoice closes after payment), the tool automatically verifies:
+- Payment records exist and amounts are correct
+- Deposit account matches expected account
+- Payment amount is appropriate (full payment, partial payment, or overpayment)
+- Transaction and payment memos are updated correctly
 
-Results show up in the **Verification Results tab**. Red = something's wrong, Green = looks good.
+Results show up in the **Verification Results tab**:
+- **PASS** (green): Everything looks correct
+- **WARN** (yellow): Minor issues or incomplete data
+- **FAIL** (red): Critical problems detected
 
+The verification system works for invoices, sales receipts, and statement charges.
+
+### Session Persistence
+
+Sessions are automatically saved after creating transactions, allowing you to:
+- Close the app and resume monitoring later
+- Load previous sessions with **File → Load Session**
+- Manually save with **File → Save Session**
+
+Session files are stored in `sessions/` directory as JSON and include all created transactions and their current state.
+
+### Logging Levels
+
+Each tab has a log level selector:
+- **Normal**: Standard operation messages
+- **Verbose**: Detailed progress for each transaction
+- **Debug**: Raw QBXML requests/responses (for troubleshooting)
+
+Logs display the last 250 messages with automatic scrolling.
+
+### Cleanup & Archive
+
+The **Cleanup** tab (under Monitor Transactions) lets you:
+- **Archive Closed**: Mark paid transactions as archived
+- **Archive All**: Archive everything (including open transactions)
+- **Delete from QB**: Permanently remove archived transactions from QuickBooks
+- **Remove from Session**: Clear archived transactions from local session only
+
+Useful for cleaning up after extensive testing.
+
+## Troubleshooting
 
 ### "QuickBooks is not running" error
 
@@ -98,23 +144,68 @@ If you accidentally clicked "No", you'll need to go into QuickBooks' integrated 
 
 ### Project Structure
 
+The codebase is organized into focused packages following separation of concerns:
+
 ```
 src/
-├── app.py                    - Main GUI application
-├── ui/
-│   ├── create_tab.py         - Create data interface
-│   ├── monitor_tab.py        - Monitoring interface
-│   └── verify_tab.py         - Verification results
-├── store.py                  - State management 
-├── qb_connection.py          - QuickBooks COM wrapper
-├── qb_connection_manager.py  - Separate manager process
-├── qb_ipc_client.py          - IPC client for manager
-├── qb_operations.py          - Query operations
-├── qbxml_builder.py          - Build QBXML requests
-├── qbxml_parser.py           - Parse QBXML responses
-├── test_data.py              - Generate random test data (Faker)
-└── tray_icon.py              - System tray integration
+├── app.py                      - Main GUI orchestrator (214 lines, down from 3,700+)
+├── actions/                    - Redux-style action creators
+│   ├── customer_actions.py    - Customer CRUD operations
+│   ├── invoice_actions.py     - Invoice creation actions
+│   ├── sales_receipt_actions.py - Sales receipt actions
+│   ├── charge_actions.py      - Statement charge actions
+│   ├── monitor_actions.py     - Transaction monitoring actions
+│   └── monitor_search_actions.py - Advanced invoice search
+├── workers/                    - Background threading workers
+│   ├── customer_worker.py     - Customer/job batch creation
+│   ├── invoice_worker.py      - Invoice batch creation
+│   ├── sales_receipt_worker.py - Sales receipt batch creation
+│   ├── charge_worker.py       - Statement charge batch creation
+│   ├── monitor_worker.py      - Transaction state monitoring
+│   ├── cleanup_worker.py      - Archive/delete operations
+│   └── data_loader_worker.py  - QB data loading
+├── ui/                         - UI component setup
+│   ├── create_tab_setup.py    - Create Data tab with subtabs
+│   ├── monitor_tab_setup.py   - Monitor tab interface
+│   ├── verify_tab_setup.py    - Verification results display
+│   ├── setup_subtab_setup.py  - Data loading subtab
+│   ├── customer_subtab_setup.py - Customer creation form
+│   ├── invoice_subtab_setup.py - Invoice creation form
+│   ├── sales_receipt_subtab_setup.py - Sales receipt form
+│   ├── charge_subtab_setup.py - Statement charge form
+│   ├── logging_utils.py       - Logging helpers
+│   └── ui_utils.py            - UI utilities
+├── store/                      - Redux-like state management
+│   ├── store.py               - Store class (subscribe/dispatch)
+│   ├── state.py               - AppState dataclass definitions
+│   ├── actions.py             - Action type constants
+│   └── reducers.py            - Pure reducer functions
+├── qb/                         - QuickBooks integration
+│   ├── connection.py          - COM wrapper for QB
+│   ├── connection_manager.py  - Separate process manager
+│   ├── ipc_client.py          - IPC client for manager
+│   ├── data_loader.py         - Load customers/items/accounts
+│   ├── xml_builder.py         - Build QBXML requests
+│   └── xml_parser.py          - Parse QBXML responses
+├── mock_generation/            - Test data generators
+│   ├── customer_generator.py  - Random customer data (Faker)
+│   ├── invoice_generator.py   - Invoice with line items
+│   ├── sales_receipt_generator.py - Sales receipt data
+│   └── charge_generator.py    - Statement charge data
+├── trayapp/                    - System tray integration
+│   ├── tray_icon.py           - Tray icon implementation
+│   └── daemon_actions.py      - Daemon mode actions
+├── persistence/                - Session save/load
+│   ├── session_manager.py     - JSON session persistence
+│   └── change_detector.py     - Detect external QB changes
+└── app_logging.py             - Logging granularity control
 ```
+
+**Key Architecture Benefits:**
+- **Maintainability**: Easy to locate and modify specific functionality
+- **Separation of Concerns**: Clear boundaries between UI, business logic, and state
+- **Testability**: Isolated modules for unit testing
+- **Scalability**: Simple to add new transaction types or features
 
 ### Dependencies
 
@@ -137,7 +228,13 @@ pip install pyinstaller
 pyinstaller --clean QBDTestTool.spec
 ```
 
-The spec file is already configured. Output goes to `dist/QBDTestTool.exe`.
+The spec file is already configured. Output goes to `dist/QBDTestTool.exe` (26 MB single-file executable).
+
+**Build Options:**
+- **GUI-only (default)**: `console=False` in spec file - no console window appears
+- **With console (debugging)**: Change to `console=True` - shows console for error messages
+
+After building, the executable runs standalone on any Windows 10/11 machine without Python installed.
 
 
 ### Use:
