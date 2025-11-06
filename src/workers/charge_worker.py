@@ -6,7 +6,7 @@ Background worker for creating batch statement charges in QuickBooks.
 
 from datetime import datetime
 from tkinter import messagebox
-from qb_ipc_client import QBIPCClient
+from qb_ipc_client import QBIPCClient, disconnect_qb
 from qbxml_builder import QBXMLBuilder
 from qbxml_parser import QBXMLParser
 from mock_generation import ChargeGenerator
@@ -38,6 +38,9 @@ def create_charge_worker(app, customer: dict, num_charges: int,
         # Select a random item to use for all charges
         # For statement charges, we typically use a generic service item
         charge_item = random.choice(items) if items else None
+
+        # Create QB client once for entire batch
+        qb = QBIPCClient()
 
         # Create multiple statement charges
         for i in range(num_charges):
@@ -73,7 +76,6 @@ def create_charge_worker(app, customer: dict, num_charges: int,
                               app._log_create(f"  [DEBUG {n}] QBXML Request:\n{xml}"))
 
                 # Send to QuickBooks
-                qb = QBIPCClient()
                 response_xml = qb.execute_request(request)
 
                 # DEBUG: Log the XML response
@@ -119,6 +121,8 @@ def create_charge_worker(app, customer: dict, num_charges: int,
         app.root.after(0, lambda: app._log_create(f"✗ Batch error: {error_str}"))
         app.root.after(0, lambda: messagebox.showerror("Error", error_str))
     finally:
+        # Disconnect from QuickBooks after batch operation completes
+        disconnect_qb()
         # Re-enable button and update status
         app.root.after(0, lambda: app.create_charge_btn.config(state='normal'))
         app.root.after(0, lambda: app.status_bar.config(text="Ready"))

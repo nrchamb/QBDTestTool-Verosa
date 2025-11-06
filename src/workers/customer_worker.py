@@ -5,7 +5,7 @@ Background worker for creating customers, jobs, and sub-jobs in QuickBooks.
 """
 
 from tkinter import messagebox
-from qb_ipc_client import QBIPCClient
+from qb_ipc_client import QBIPCClient, disconnect_qb
 from qb_connection import QBConnectionError
 from qbxml_builder import QBXMLBuilder
 from qbxml_parser import QBXMLParser
@@ -156,6 +156,8 @@ def create_customer_worker(app, email: str, field_config: dict, manual_values: d
         app.root.after(0, lambda: app._log_create(f"✗ Unexpected Error: {error_str}"))
         app.root.after(0, lambda: messagebox.showerror("Error", error_str))
     finally:
+        # Disconnect from QuickBooks after batch operation completes
+        disconnect_qb()
         # Re-enable button and update status
         app.root.after(0, lambda: app.create_customer_btn.config(state='normal'))
         app.root.after(0, lambda: app.status_bar.config(text="Ready"))

@@ -7,6 +7,7 @@ Background workers for loading data from QuickBooks (items, terms, classes, acco
 from tkinter import messagebox
 from qb_data_loader import QBDataLoader
 from store import set_items, set_terms, set_classes, set_accounts
+from qb_ipc_client import disconnect_qb
 
 
 def load_items_worker(app):
@@ -282,5 +283,7 @@ def load_all_worker(app):
         app.root.after(0, lambda es=error_str: app._log_create(f"✗ Error during Load All: {es}"))
         app.root.after(0, lambda es=error_str: messagebox.showerror("Error", es))
     finally:
+        # Disconnect from QuickBooks after batch operation completes
+        disconnect_qb()
         app.root.after(0, lambda: app.load_all_btn.config(state='normal'))
         app.root.after(0, lambda: app.status_bar.config(text="Ready"))

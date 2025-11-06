@@ -131,6 +131,20 @@ def start_manager():
     print(f"[IPC Client] Connection manager started (PID: {_manager_process.pid})")
 
 
+def disconnect_qb():
+    """Request the connection manager to disconnect from QuickBooks."""
+    global _request_queue
+
+    if not _request_queue:
+        return
+
+    try:
+        disconnect_msg = {'type': 'disconnect'}
+        _request_queue.put(disconnect_msg, timeout=2.0)
+    except Exception as e:
+        print(f"[IPC Client] Error sending disconnect: {e}")
+
+
 def stop_manager():
     """Stop the connection manager process gracefully."""
     global _manager_process, _request_queue, _heartbeat_stop_flag, _heartbeat_thread

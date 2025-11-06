@@ -32,6 +32,8 @@ class QBConnectionManager:
         self.heartbeat_timeout = 15.0  # Exit if no heartbeat for 15 seconds
         self.qb_connection = None
         self.connection_active = False  # Track if QB connection is currently active
+        self.last_request_time = None  # Track last request for idle timeout
+        self.idle_timeout = 30.0  # Disconnect after 30 seconds of inactivity
 
     def run(self):
         """Main event loop for connection manager."""
@@ -50,7 +52,7 @@ class QBConnectionManager:
                         message = self.request_queue.get(timeout=1.0)
                         self._handle_message(message)
                     else:
-                        # No message, just check heartbeat
+                        # No message, just check heartbeat and idle timeout
                         time.sleep(0.1)
 
                     # Check if main app is still alive
@@ -59,6 +61,20 @@ class QBConnectionManager:
                         print("[QB Manager] Initiating graceful shutdown...")
                         self.running = False
                         break
+
+                    # Check for idle timeout - disconnect if no requests for idle_timeout seconds
+                    if self.qb_connection and self.last_request_time:
+                        idle_time = time.time() - self.last_request_time
+                        if idle_time > self.idle_timeout:
+                            print(f"[QB Manager] Idle timeout ({idle_time:.1f}s) - disconnecting from QuickBooks")
+                            try:
+                                self.qb_connection.disconnect()
+                                self.connection_active = False
+                                self.qb_connection = None
+                                self.last_request_time = None
+                                print("[QB Manager] Disconnected due to inactivity")
+                            except Exception as e:
+                                print(f"[QB Manager] Error during idle disconnect: {e}")
 
                 except Exception as e:
                     print(f"[QB Manager] Error in main loop: {e}")
@@ -89,6 +105,19 @@ class QBConnectionManager:
             print("[QB Manager] Shutdown requested by main app")
             self.running = False
 
+        elif msg_type == 'disconnect':
+            # Explicit disconnect request
+            if self.qb_connection:
+                print("[QB Manager] Explicit disconnect requested")
+                try:
+                    self.qb_connection.disconnect()
+                    self.connection_active = False
+                    self.qb_connection = None
+                    self.last_request_time = None
+                    print("[QB Manager] Disconnected successfully")
+                except Exception as e:
+                    print(f"[QB Manager] Error during disconnect: {e}")
+
         elif msg_type == 'request':
             # QB request to execute
             self._handle_request(message)
@@ -98,7 +127,7 @@ class QBConnectionManager:
 
     def _handle_request(self, message: Dict[str, Any]):
         """
-        Handle QuickBooks request.
+        Handle QuickBooks request using persistent connection.
 
         Args:
             message: Request message with request_id, qbxml, company_file
@@ -114,25 +143,19 @@ class QBConnectionManager:
             'error': None
         }
 
-        # Wait for previous connection to fully close
-        timeout = 5.0  # 5 second timeout
-        wait_start = time.time()
-        while self.connection_active:
-            if time.time() - wait_start > timeout:
-                response['error'] = "Timeout waiting for previous connection to close"
-                print(f"[QB Manager] Connection timeout for request {request_id}")
-                self.response_queue.put(response, timeout=5.0)
-                return
-            time.sleep(0.05)  # Check every 50ms
-
-        # Mark connection as active
-        self.connection_active = True
-
         try:
-            # Execute request using QBConnection instance
-            # This uses execute_request which has finally block protection
-            qb = QBConnection()
-            qb_response = qb.execute_request(qbxml, company_file)
+            # Create persistent connection if it doesn't exist
+            if not self.qb_connection:
+                print(f"[QB Manager] Creating new QB connection")
+                self.qb_connection = QBConnection()
+                self.qb_connection.connect(company_file)
+                self.connection_active = True
+
+            # Update last request time for idle timeout tracking
+            self.last_request_time = time.time()
+
+            # Reuse existing connection for request
+            qb_response = self.qb_connection.send_request(qbxml)
 
             response['success'] = True
             response['response'] = qb_response
@@ -142,9 +165,14 @@ class QBConnectionManager:
             response['error'] = str(e)
             print(f"[QB Manager] Error executing request {request_id}: {e}")
 
-        finally:
-            # Mark connection as inactive (ready for next request)
-            self.connection_active = False
+            # On error, disconnect and cleanup connection for next request
+            if self.qb_connection:
+                try:
+                    self.qb_connection.disconnect()
+                except:
+                    pass
+                self.qb_connection = None
+                self.connection_active = False
 
         # Send response back to main app
         try:
@@ -156,15 +184,16 @@ class QBConnectionManager:
         """Clean up resources before exit."""
         print("[QB Manager] Cleaning up resources...")
 
-        # Close any open QB connections
+        # Close persistent QB connection
         if self.qb_connection:
             try:
+                print("[QB Manager] Disconnecting from QuickBooks...")
                 self.qb_connection.disconnect()
+                self.connection_active = False
+                self.qb_connection = None
+                print("[QB Manager] Disconnected successfully")
             except Exception as e:
                 print(f"[QB Manager] Error disconnecting: {e}")
-
-        # Note: QBConnection.execute_request already handles cleanup via finally block
-        # This is just extra safety in case we ever hold persistent connections
 
         print("[QB Manager] Cleanup complete")
 

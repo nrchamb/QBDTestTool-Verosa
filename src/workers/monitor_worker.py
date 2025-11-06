@@ -61,11 +61,13 @@ def check_invoices(app):
     """
     state = app.store.get_state()
 
+    # Create QB client once for entire batch
+    qb = QBIPCClient()
+
     for invoice in state.invoices:
         try:
             # Query invoice
             request = QBXMLBuilder.build_invoice_query(txn_id=invoice.txn_id)
-            qb = QBIPCClient()
             response_xml = qb.execute_request(request)
 
             parser_result = QBXMLParser.parse_response(response_xml)
@@ -114,10 +116,12 @@ def check_sales_receipts(app):
     """
     state = app.store.get_state()
 
+    # Create QB client once for entire batch
+    qb = QBIPCClient()
+
     for sr in state.sales_receipts:
         try:
             request = QBXMLBuilder.build_sales_receipt_query(txn_id=sr.txn_id)
-            qb = QBIPCClient()
             response_xml = qb.execute_request(request)
             parser_result = QBXMLParser.parse_response(response_xml)
 
@@ -162,10 +166,12 @@ def check_statement_charges(app):
     """
     state = app.store.get_state()
 
+    # Create QB client once for entire batch
+    qb = QBIPCClient()
+
     for charge in state.statement_charges:
         try:
             request = QBXMLBuilder.build_charge_query(txn_id=charge.txn_id)
-            qb = QBIPCClient()
             response_xml = qb.execute_request(request)
             parser_result = QBXMLParser.parse_response(response_xml)
 

@@ -6,7 +6,7 @@ Background worker for creating batch sales receipts in QuickBooks.
 
 from datetime import datetime
 from tkinter import messagebox
-from qb_ipc_client import QBIPCClient
+from qb_ipc_client import QBIPCClient, disconnect_qb
 from qbxml_builder import QBXMLBuilder
 from qbxml_parser import QBXMLParser
 from mock_generation import SalesReceiptGenerator
@@ -37,6 +37,9 @@ def create_sales_receipt_worker(app, customer: dict, num_receipts: int,
             days_back = 0  # Default to today
 
         app.root.after(0, lambda: app._log_create(f"Starting batch creation of {num_receipts} sales receipt(s) for {customer['name']} ({date_range})..."))
+
+        # Create QB client once for entire batch
+        qb = QBIPCClient()
 
         # Create multiple sales receipts
         for i in range(num_receipts):
@@ -79,7 +82,6 @@ def create_sales_receipt_worker(app, customer: dict, num_receipts: int,
                               app._log_create(f"  [DEBUG {n}] QBXML Request:\n{xml}"))
 
                 # Send to QuickBooks
-                qb = QBIPCClient()
                 response_xml = qb.execute_request(request)
 
                 # DEBUG: Log the XML response
@@ -154,6 +156,8 @@ def create_sales_receipt_worker(app, customer: dict, num_receipts: int,
         app.root.after(0, lambda: app._log_create(f"✗ Batch error: {error_str}"))
         app.root.after(0, lambda: messagebox.showerror("Error", error_str))
     finally:
+        # Disconnect from QuickBooks after batch operation completes
+        disconnect_qb()
         # Re-enable button and update status
         app.root.after(0, lambda: app.create_sales_receipt_btn.config(state='normal'))
         app.root.after(0, lambda: app.status_bar.config(text="Ready"))

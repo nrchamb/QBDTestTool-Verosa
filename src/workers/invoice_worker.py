@@ -6,12 +6,13 @@ Background worker for creating batch invoices in QuickBooks.
 
 from datetime import datetime
 from tkinter import messagebox
-from qb_ipc_client import QBIPCClient
+from qb_ipc_client import QBIPCClient, disconnect_qb
 from qbxml_builder import QBXMLBuilder
 from qbxml_parser import QBXMLParser
 from mock_generation import InvoiceGenerator
 from store.state import InvoiceRecord
 from store.actions import add_invoice
+from workers.monitor_worker import update_invoice_tree
 
 
 def create_invoice_worker(app, customer: dict, num_invoices: int,
@@ -38,6 +39,9 @@ def create_invoice_worker(app, customer: dict, num_invoices: int,
             days_back = 0  # Default to today
 
         app.root.after(0, lambda: app._log_create(f"Starting batch creation of {num_invoices} invoice(s) for {customer['name']} ({date_range})..."))
+
+        # Create QB client once for entire batch
+        qb = QBIPCClient()
 
         # Create multiple invoices
         for i in range(num_invoices):
@@ -82,7 +86,6 @@ def create_invoice_worker(app, customer: dict, num_invoices: int,
                               app._log_create(f"  [DEBUG {n}] QBXML Request:\n{xml}"))
 
                 # Send to QuickBooks
-                qb = QBIPCClient()
                 response_xml = qb.execute_request(request)
 
                 # DEBUG: Log the XML response
@@ -108,7 +111,7 @@ def create_invoice_worker(app, customer: dict, num_invoices: int,
                     app.store.dispatch(add_invoice(invoice_record))
                     app.root.after(0, lambda n=invoice_num, ref=invoice_info['ref_number'], tid=invoice_info['txn_id']:
                                   app._log_create(f"  ✓ [{n}/{num_invoices}] Invoice created: {ref} (ID: {tid})"))
-                    app.root.after(0, app._update_invoice_tree)
+                    app.root.after(0, lambda: update_invoice_tree(app))
                     successful_count += 1
 
                 else:
@@ -140,6 +143,8 @@ def create_invoice_worker(app, customer: dict, num_invoices: int,
         app.root.after(0, lambda: app._log_create(f"✗ Batch error: {error_str}"))
         app.root.after(0, lambda: messagebox.showerror("Error", error_str))
     finally:
+        # Disconnect from QuickBooks after batch operation completes
+        disconnect_qb()
         # Re-enable button and update status
         app.root.after(0, lambda: app.create_invoice_btn.config(state='normal'))
         app.root.after(0, lambda: app.status_bar.config(text="Ready"))
