@@ -36,10 +36,16 @@ pip install pywin32 lxml faker pillow pystray
 
 **Run:**
 ```bash
+# Windows (recommended)
+run.bat
+
+# Or directly with Python
 python src/app.py
 ```
 
 QuickBooks needs to be running first, or you'll get COM errors.
+
+The `run.bat` script will check for Python and dependencies before launching.
 
 
 ### Initial Setup
