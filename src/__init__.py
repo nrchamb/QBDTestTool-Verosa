@@ -1,5 +1,5 @@
 """
-QBD Test Tool - Verosa
+QBD Test Tool
 A test-driven application for validating QuickBooks Desktop integrations.
 """
 

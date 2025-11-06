@@ -75,7 +75,7 @@ class QBConnection:
     to allow other applications to connect to QuickBooks.
     """
 
-    def __init__(self, app_name: str = "QBDTestTool-Verosa", app_id: str = ""):
+    def __init__(self, app_name: str = "QBDTestTool", app_id: str = ""):
         """
         Initialize QB connection manager.
 
