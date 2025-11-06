@@ -8,6 +8,7 @@ from tkinter import messagebox
 from qb_data_loader import QBDataLoader
 from store import set_items, set_terms, set_classes, set_accounts
 from qb_ipc_client import disconnect_qb
+from app_logging import LOG_NORMAL, LOG_VERBOSE
 
 
 def load_items_worker(app):
@@ -207,22 +208,22 @@ def load_all_worker(app):
         app._log_create("Starting Load All...")
 
         # Load customers
-        app.root.after(0, lambda: app._log_create("Loading customers..."))
+        app.root.after(0, lambda: app._log_create("Loading customers...", LOG_VERBOSE))
         result = QBDataLoader.load_customers()
         if result['success']:
             app.store.dispatch({'type': 'SET_CUSTOMERS', 'payload': result['data']})
-            app.root.after(0, lambda: app._log_create(f"✓ Loaded {result['count']} customers"))
+            app.root.after(0, lambda: app._log_create(f"✓ Loaded {result['count']} customers", LOG_VERBOSE))
             app.root.after(0, app._update_customer_combo)
         else:
             raise Exception(f"Failed to load customers: {result['error']}")
 
         # Load items
-        app.root.after(0, lambda: app._log_create("Loading items..."))
+        app.root.after(0, lambda: app._log_create("Loading items...", LOG_VERBOSE))
         result = QBDataLoader.load_items()
         if result['success']:
             app.store.dispatch(set_items(result['data']))
             count = result['count']
-            app.root.after(0, lambda c=count: app._log_create(f"✓ Loaded {c} items"))
+            app.root.after(0, lambda c=count: app._log_create(f"✓ Loaded {c} items", LOG_VERBOSE))
             app.root.after(0, lambda c=count: app.items_status_label.config(
                 text=f"{c} item{'s' if c != 1 else ''} loaded", foreground='green'
             ))
@@ -230,44 +231,44 @@ def load_all_worker(app):
             raise Exception(f"Failed to load items: {result['error']}")
 
         # Load terms
-        app.root.after(0, lambda: app._log_create("Loading terms..."))
+        app.root.after(0, lambda: app._log_create("Loading terms...", LOG_VERBOSE))
         result = QBDataLoader.load_terms()
         if result['success']:
             terms = result['data']
             app.store.dispatch(set_terms(terms))
             count = result['count']
-            app.root.after(0, lambda c=count: app._log_create(f"✓ Loaded {c} terms"))
+            app.root.after(0, lambda c=count: app._log_create(f"✓ Loaded {c} terms", LOG_VERBOSE))
             app.root.after(0, lambda c=count: app.terms_status_label.config(
                 text=f"{c} term{'s' if c != 1 else ''} loaded", foreground='green'
             ))
             term_names = ['(None)'] + [term['name'] for term in terms]
-            app.root.after(0, lambda tn=term_names: app.invoice_terms_combo.config(values=tn))
+            app.root.after(0, lambda tn=term_names: app.txn_terms_combo.config(values=tn))
         else:
             raise Exception(f"Failed to load terms: {result['error']}")
 
         # Load classes
-        app.root.after(0, lambda: app._log_create("Loading classes..."))
+        app.root.after(0, lambda: app._log_create("Loading classes...", LOG_VERBOSE))
         result = QBDataLoader.load_classes()
         if result['success']:
             classes = result['data']
             app.store.dispatch(set_classes(classes))
             count = result['count']
-            app.root.after(0, lambda c=count: app._log_create(f"✓ Loaded {c} classes"))
+            app.root.after(0, lambda c=count: app._log_create(f"✓ Loaded {c} classes", LOG_VERBOSE))
             app.root.after(0, lambda c=count: app.classes_status_label.config(
                 text=f"{c} class{'es' if c != 1 else ''} loaded", foreground='green'
             ))
             class_names = ['(None)'] + [cls['full_name'] for cls in classes]
-            app.root.after(0, lambda cn=class_names: app.invoice_class_combo.config(values=cn))
+            app.root.after(0, lambda cn=class_names: app.txn_class_combo.config(values=cn))
         else:
             raise Exception(f"Failed to load classes: {result['error']}")
 
         # Load accounts
-        app.root.after(0, lambda: app._log_create("Loading accounts..."))
+        app.root.after(0, lambda: app._log_create("Loading accounts...", LOG_VERBOSE))
         result = QBDataLoader.load_accounts(filter_deposit_accounts=True)
         if result['success']:
             app.store.dispatch(set_accounts(result['data']))
             count = result['count']
-            app.root.after(0, lambda c=count: app._log_create(f"✓ Loaded {c} deposit accounts"))
+            app.root.after(0, lambda c=count: app._log_create(f"✓ Loaded {c} deposit accounts", LOG_VERBOSE))
             app.root.after(0, lambda c=count: app.accounts_status_label.config(
                 text=f"{c} account{'s' if c != 1 else ''} loaded", foreground='green'
             ))

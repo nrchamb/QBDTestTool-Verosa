@@ -11,6 +11,7 @@ from qbxml_builder import QBXMLBuilder
 from qbxml_parser import QBXMLParser
 from mock_generation import CustomerGenerator
 from store import add_customer
+from app_logging import LOG_NORMAL, LOG_VERBOSE
 
 
 def create_customer_worker(app, email: str, field_config: dict, manual_values: dict,
@@ -67,7 +68,7 @@ def create_customer_worker(app, email: str, field_config: dict, manual_values: d
 
         # Step 2: Create jobs if requested
         if num_jobs > 0:
-            app.root.after(0, lambda: app._log_create(f"Creating {num_jobs} job(s)..."))
+            app.root.after(0, lambda: app._log_create(f"Creating {num_jobs} job(s)...", LOG_VERBOSE))
 
             for job_idx in range(num_jobs):
                 try:
@@ -80,7 +81,7 @@ def create_customer_worker(app, email: str, field_config: dict, manual_values: d
 
                     job_num = job_idx + 1
                     app.root.after(0, lambda n=job_num, total=num_jobs, name=job_data['name']:
-                                  app._log_create(f"  Creating job {n}/{total}: {name}"))
+                                  app._log_create(f"  Creating job {n}/{total}: {name}", LOG_VERBOSE))
 
                     # Build and send QBXML request
                     request = QBXMLBuilder.build_customer_add(job_data)
@@ -97,7 +98,7 @@ def create_customer_worker(app, email: str, field_config: dict, manual_values: d
                     job_info = parser_result['data']
                     job_list_id = job_info['list_id']
                     app.root.after(0, lambda n=job_num, name=job_info['full_name']:
-                                  app._log_create(f"  ✓ Job {n}/{num_jobs} created: {name}"))
+                                  app._log_create(f"  ✓ Job {n}/{num_jobs} created: {name}", LOG_VERBOSE))
 
                     # Step 3: Create sub-jobs for this job if requested
                     if num_subjobs > 0:
@@ -112,7 +113,7 @@ def create_customer_worker(app, email: str, field_config: dict, manual_values: d
 
                                 subjob_num = subjob_idx + 1
                                 app.root.after(0, lambda jn=job_num, sn=subjob_num, total=num_subjobs, name=subjob_data['name']:
-                                              app._log_create(f"    Creating sub-job {sn}/{total} for job {jn}: {name}"))
+                                              app._log_create(f"    Creating sub-job {sn}/{total} for job {jn}: {name}", LOG_VERBOSE))
 
                                 # Build and send QBXML request
                                 request = QBXMLBuilder.build_customer_add(subjob_data)
@@ -128,7 +129,7 @@ def create_customer_worker(app, email: str, field_config: dict, manual_values: d
                                 # Sub-job created successfully
                                 subjob_info = parser_result['data']
                                 app.root.after(0, lambda sn=subjob_num, name=subjob_info['full_name']:
-                                              app._log_create(f"    ✓ Sub-job {sn}/{num_subjobs} created: {name}"))
+                                              app._log_create(f"    ✓ Sub-job {sn}/{num_subjobs} created: {name}", LOG_VERBOSE))
 
                             except Exception as e:
                                 error_str = str(e)

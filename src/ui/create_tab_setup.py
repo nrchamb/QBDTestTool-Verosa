@@ -3,10 +3,8 @@ from tkinter import ttk, scrolledtext
 
 from .setup_subtab_setup import setup_setup_subtab
 from .customer_subtab_setup import setup_customer_subtab
-from .invoice_subtab_setup import setup_invoice_subtab
-from .sales_receipt_subtab_setup import setup_sales_receipt_subtab
-from .charge_subtab_setup import setup_charge_subtab
-from .logging_utils import log_create
+from .transaction_subtab_setup import setup_transaction_subtab
+from app_logging import log_create
 
 
 def setup_create_tab(app):
@@ -26,23 +24,17 @@ def setup_create_tab(app):
     # Create subtab frames
     app.setup_subtab = ttk.Frame(app.create_notebook)
     app.customer_subtab = ttk.Frame(app.create_notebook)
-    app.invoice_subtab = ttk.Frame(app.create_notebook)
-    app.sales_receipt_subtab = ttk.Frame(app.create_notebook)
-    app.charge_subtab = ttk.Frame(app.create_notebook)
+    app.transaction_subtab = ttk.Frame(app.create_notebook)
 
     # Add subtabs to notebook
     app.create_notebook.add(app.setup_subtab, text='Setup')
     app.create_notebook.add(app.customer_subtab, text='Customer')
-    app.create_notebook.add(app.invoice_subtab, text='Invoice')
-    app.create_notebook.add(app.sales_receipt_subtab, text='Sales Receipt')
-    app.create_notebook.add(app.charge_subtab, text='Statement Charge')
+    app.create_notebook.add(app.transaction_subtab, text='Transactions')
 
     # Setup each subtab
     setup_setup_subtab(app)
     setup_customer_subtab(app)
-    setup_invoice_subtab(app)
-    setup_sales_receipt_subtab(app)
-    setup_charge_subtab(app)
+    setup_transaction_subtab(app)
 
     # Activity log at bottom (outside subtabs, always visible)
     log_frame = ttk.LabelFrame(app.create_tab, text="Activity Log", padding=10)

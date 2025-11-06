@@ -13,6 +13,7 @@ from store import (
     InvoiceRecord, SalesReceiptRecord, StatementChargeRecord,
     update_invoice, update_sales_receipt, update_statement_charge, add_verification_result
 )
+from app_logging import LOG_NORMAL, LOG_VERBOSE
 
 
 def monitor_loop_worker(app):

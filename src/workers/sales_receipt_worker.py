@@ -12,6 +12,7 @@ from qbxml_parser import QBXMLParser
 from mock_generation import SalesReceiptGenerator
 from store.state import SalesReceiptRecord
 from store.actions import add_sales_receipt
+from app_logging import LOG_NORMAL, LOG_VERBOSE, LOG_DEBUG
 
 
 def create_sales_receipt_worker(app, customer: dict, num_receipts: int,
@@ -71,7 +72,7 @@ def create_sales_receipt_worker(app, customer: dict, num_receipts: int,
                 # Log current progress
                 receipt_num = i + 1
                 app.root.after(0, lambda n=receipt_num, ref=receipt_data['ref_number']:
-                              app._log_create(f"[{n}/{num_receipts}] Creating sales receipt Ref#: {ref}, Amount: ${amount:.2f}, Lines: {num_lines}"))
+                              app._log_create(f"[{n}/{num_receipts}] Creating sales receipt Ref#: {ref}, Amount: ${amount:.2f}, Lines: {num_lines}", LOG_VERBOSE))
 
                 # Build QBXML request
                 request = QBXMLBuilder.build_sales_receipt_add(receipt_data)
@@ -79,14 +80,14 @@ def create_sales_receipt_worker(app, customer: dict, num_receipts: int,
                 # DEBUG: Log the XML request
                 receipt_num = i + 1
                 app.root.after(0, lambda n=receipt_num, xml=request:
-                              app._log_create(f"  [DEBUG {n}] QBXML Request:\n{xml}"))
+                              app._log_create(f"  [DEBUG {n}] QBXML Request:\n{xml}", LOG_DEBUG))
 
                 # Send to QuickBooks
                 response_xml = qb.execute_request(request)
 
                 # DEBUG: Log the XML response
                 app.root.after(0, lambda n=receipt_num, xml=response_xml:
-                              app._log_create(f"  [DEBUG {n}] QBXML Response:\n{xml}"))
+                              app._log_create(f"  [DEBUG {n}] QBXML Response:\n{xml}", LOG_DEBUG))
 
                 # Parse response
                 parser_result = QBXMLParser.parse_response(response_xml)
@@ -124,7 +125,7 @@ def create_sales_receipt_worker(app, customer: dict, num_receipts: int,
 
                     app.store.dispatch(add_sales_receipt(receipt_record))
                     app.root.after(0, lambda n=receipt_num, ref=receipt_info['ref_number'], tid=receipt_info['txn_id']:
-                                  app._log_create(f"  ✓ [{n}/{num_receipts}] Sales receipt created: {ref} (ID: {tid})"))
+                                  app._log_create(f"  ✓ [{n}/{num_receipts}] Sales receipt created: {ref} (ID: {tid})", LOG_VERBOSE))
                     successful_count += 1
 
                 else:
@@ -159,7 +160,7 @@ def create_sales_receipt_worker(app, customer: dict, num_receipts: int,
         # Disconnect from QuickBooks after batch operation completes
         disconnect_qb()
         # Re-enable button and update status
-        app.root.after(0, lambda: app.create_sales_receipt_btn.config(state='normal'))
+        app.root.after(0, lambda: app.create_transaction_btn.config(state='normal'))
         app.root.after(0, lambda: app.status_bar.config(text="Ready"))
 
 
@@ -173,7 +174,7 @@ def query_sales_receipt_worker(app, txn_id: str):
 
         # DEBUG: Log the XML request
         app.root.after(0, lambda xml=request:
-                      app._log_create(f"  [DEBUG] Query Request:\n{xml}"))
+                      app._log_create(f"  [DEBUG] Query Request:\n{xml}", LOG_DEBUG))
 
         # Send to QuickBooks
         qb = QBIPCClient()
@@ -181,7 +182,7 @@ def query_sales_receipt_worker(app, txn_id: str):
 
         # DEBUG: Log the XML response
         app.root.after(0, lambda xml=response_xml:
-                      app._log_create(f"  [DEBUG] Query Response:\n{xml}"))
+                      app._log_create(f"  [DEBUG] Query Response:\n{xml}", LOG_DEBUG))
 
         # Parse response
         parser_result = QBXMLParser.parse_response(response_xml)

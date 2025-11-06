@@ -16,6 +16,7 @@ from store import (
     add_sales_receipt, update_sales_receipt, add_statement_charge, update_statement_charge,
     set_monitoring, add_verification_result, set_expected_deposit_account
 )
+from config import AppConfig
 from qb_connection import QBConnectionError
 from qb_ipc_client import QBIPCClient, start_manager, stop_manager
 from qbxml_builder import QBXMLBuilder
@@ -25,7 +26,7 @@ from ui.create_tab_setup import setup_create_tab
 from ui.monitor_tab_setup import setup_monitor_tab
 from ui.verify_tab_setup import setup_verify_tab
 from ui.setup_subtab_setup import setup_setup_subtab
-from ui.logging_utils import log_create, log_monitor
+from app_logging import log_create, log_monitor
 from ui.ui_utils import create_scrollable_frame
 from actions.customer_actions import create_customer, update_customer_combo
 from actions.monitor_actions import update_accounts_combo
@@ -43,7 +44,13 @@ class QBDTestToolApp:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("QBD Test Tool")
-        self.root.geometry("900x700")
+
+        # Load and apply saved window geometry
+        window_cfg = AppConfig.get_window_geometry()
+        if window_cfg['x'] is not None and window_cfg['y'] is not None:
+            self.root.geometry(f"{window_cfg['width']}x{window_cfg['height']}+{window_cfg['x']}+{window_cfg['y']}")
+        else:
+            self.root.geometry(f"{window_cfg['width']}x{window_cfg['height']}")
 
         # Initialize Redux store
         self.store = Store()
@@ -102,13 +109,19 @@ class QBDTestToolApp:
         return create_scrollable_frame(parent)
 
     # Wrapper methods for logging - kept in app.py for convenience
-    def _log_create(self, message: str):
+    def _log_create(self, message: str, level: str = None):
         """Log message to create tab (wrapper for logging_utils.log_create)."""
-        log_create(self, message)
+        if level is None:
+            log_create(self, message)
+        else:
+            log_create(self, message, level)
 
-    def _log_monitor(self, message: str):
+    def _log_monitor(self, message: str, level: str = None):
         """Log message to monitor tab (wrapper for logging_utils.log_monitor)."""
-        log_monitor(self, message)
+        if level is None:
+            log_monitor(self, message)
+        else:
+            log_monitor(self, message, level)
 
 ### MARK: Wrapper functions that call workers in main app.
 # This is done because we disable the button before launching the worker and moving them to a separate file and updating actions in-between is unnecessary overhead for a small action.

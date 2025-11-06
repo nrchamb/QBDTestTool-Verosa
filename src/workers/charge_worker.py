@@ -10,6 +10,7 @@ from qb_ipc_client import QBIPCClient, disconnect_qb
 from qbxml_builder import QBXMLBuilder
 from qbxml_parser import QBXMLParser
 from mock_generation import ChargeGenerator
+from app_logging import LOG_NORMAL, LOG_VERBOSE, LOG_DEBUG
 
 
 def create_charge_worker(app, customer: dict, num_charges: int,
@@ -66,21 +67,21 @@ def create_charge_worker(app, customer: dict, num_charges: int,
                 # Log current progress
                 charge_num = i + 1
                 app.root.after(0, lambda n=charge_num, amt=amount:
-                              app._log_create(f"[{n}/{num_charges}] Creating statement charge: Amount: ${amt:.2f}"))
+                              app._log_create(f"[{n}/{num_charges}] Creating statement charge: Amount: ${amt:.2f}", LOG_VERBOSE))
 
                 # Build QBXML request
                 request = QBXMLBuilder.build_charge_add(charge_data)
 
                 # DEBUG: Log the XML request
                 app.root.after(0, lambda n=charge_num, xml=request:
-                              app._log_create(f"  [DEBUG {n}] QBXML Request:\n{xml}"))
+                              app._log_create(f"  [DEBUG {n}] QBXML Request:\n{xml}", LOG_DEBUG))
 
                 # Send to QuickBooks
                 response_xml = qb.execute_request(request)
 
                 # DEBUG: Log the XML response
                 app.root.after(0, lambda n=charge_num, xml=response_xml:
-                              app._log_create(f"  [DEBUG {n}] QBXML Response:\n{xml}"))
+                              app._log_create(f"  [DEBUG {n}] QBXML Response:\n{xml}", LOG_DEBUG))
 
                 # Parse response
                 parser_result = QBXMLParser.parse_response(response_xml)
@@ -89,7 +90,7 @@ def create_charge_worker(app, customer: dict, num_charges: int,
                     charge_info = parser_result['data']
 
                     app.root.after(0, lambda n=charge_num, tid=charge_info['txn_id'], amt=charge_info.get('amount', amount):
-                                  app._log_create(f"  ✓ [{n}/{num_charges}] Statement charge created: ${amt} (ID: {tid})"))
+                                  app._log_create(f"  ✓ [{n}/{num_charges}] Statement charge created: ${amt} (ID: {tid})", LOG_VERBOSE))
                     successful_count += 1
 
                 else:
@@ -124,5 +125,5 @@ def create_charge_worker(app, customer: dict, num_charges: int,
         # Disconnect from QuickBooks after batch operation completes
         disconnect_qb()
         # Re-enable button and update status
-        app.root.after(0, lambda: app.create_charge_btn.config(state='normal'))
+        app.root.after(0, lambda: app.create_transaction_btn.config(state='normal'))
         app.root.after(0, lambda: app.status_bar.config(text="Ready"))

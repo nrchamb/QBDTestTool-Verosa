@@ -13,6 +13,7 @@ from mock_generation import InvoiceGenerator
 from store.state import InvoiceRecord
 from store.actions import add_invoice
 from workers.monitor_worker import update_invoice_tree
+from app_logging import LOG_NORMAL, LOG_VERBOSE, LOG_DEBUG
 
 
 def create_invoice_worker(app, customer: dict, num_invoices: int,
@@ -76,21 +77,21 @@ def create_invoice_worker(app, customer: dict, num_invoices: int,
                 # Log current progress
                 invoice_num = i + 1
                 app.root.after(0, lambda n=invoice_num, ref=invoice_data['ref_number']:
-                              app._log_create(f"[{n}/{num_invoices}] Creating invoice Ref#: {ref}, Amount: ${amount:.2f}, Lines: {num_lines}"))
+                              app._log_create(f"[{n}/{num_invoices}] Creating invoice Ref#: {ref}, Amount: ${amount:.2f}, Lines: {num_lines}", LOG_VERBOSE))
 
                 # Build QBXML request
                 request = QBXMLBuilder.build_invoice_add(invoice_data)
 
                 # DEBUG: Log the XML request
                 app.root.after(0, lambda n=invoice_num, xml=request:
-                              app._log_create(f"  [DEBUG {n}] QBXML Request:\n{xml}"))
+                              app._log_create(f"  [DEBUG {n}] QBXML Request:\n{xml}", LOG_DEBUG))
 
                 # Send to QuickBooks
                 response_xml = qb.execute_request(request)
 
                 # DEBUG: Log the XML response
                 app.root.after(0, lambda n=invoice_num, xml=response_xml:
-                              app._log_create(f"  [DEBUG {n}] QBXML Response:\n{xml}"))
+                              app._log_create(f"  [DEBUG {n}] QBXML Response:\n{xml}", LOG_DEBUG))
 
                 # Parse response
                 parser_result = QBXMLParser.parse_response(response_xml)
@@ -110,7 +111,7 @@ def create_invoice_worker(app, customer: dict, num_invoices: int,
 
                     app.store.dispatch(add_invoice(invoice_record))
                     app.root.after(0, lambda n=invoice_num, ref=invoice_info['ref_number'], tid=invoice_info['txn_id']:
-                                  app._log_create(f"  ✓ [{n}/{num_invoices}] Invoice created: {ref} (ID: {tid})"))
+                                  app._log_create(f"  ✓ [{n}/{num_invoices}] Invoice created: {ref} (ID: {tid})", LOG_VERBOSE))
                     app.root.after(0, lambda: update_invoice_tree(app))
                     successful_count += 1
 
@@ -146,5 +147,5 @@ def create_invoice_worker(app, customer: dict, num_invoices: int,
         # Disconnect from QuickBooks after batch operation completes
         disconnect_qb()
         # Re-enable button and update status
-        app.root.after(0, lambda: app.create_invoice_btn.config(state='normal'))
+        app.root.after(0, lambda: app.create_transaction_btn.config(state='normal'))
         app.root.after(0, lambda: app.status_bar.config(text="Ready"))

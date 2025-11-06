@@ -1,6 +1,8 @@
 """
 Sales Receipt subtab setup for QuickBooks Desktop Test Tool.
 
+
+DEFUNCT: MARKED FOR DELETION
 """
 
 from tkinter import ttk

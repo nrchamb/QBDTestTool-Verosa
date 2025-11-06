@@ -5,6 +5,8 @@ Handles the Setup subtab for loading customers, items, terms, classes, and accou
 """
 
 from tkinter import ttk
+from config import AppConfig
+from app_logging import LOG_LEVELS
 from .ui_utils import create_scrollable_frame
 
 
@@ -95,3 +97,40 @@ def setup_setup_subtab(app):
         font=('TkDefaultFont', 9)
     )
     app.setup_summary_label.pack(side='left')
+
+    # Separator
+    ttk.Separator(content, orient='horizontal').pack(fill='x', pady=15)
+
+    # Settings section
+    settings_frame = ttk.LabelFrame(content, text="Settings", padding=10)
+    settings_frame.pack(fill='x', pady=(0, 10))
+
+    # Log verbosity control
+    log_control_frame = ttk.Frame(settings_frame)
+    log_control_frame.pack(fill='x')
+
+    ttk.Label(log_control_frame, text="Log Verbosity:").pack(side='left', padx=(0, 10))
+
+    app.log_level_combo = ttk.Combobox(log_control_frame, width=15, state='readonly', values=LOG_LEVELS)
+    app.log_level_combo.set(AppConfig.get_log_level())
+    app.log_level_combo.pack(side='left', padx=5)
+
+    def on_log_level_change(event=None):
+        """Save log level when changed."""
+        new_level = app.log_level_combo.get()
+        AppConfig.save_log_level(new_level)
+
+    app.log_level_combo.bind('<<ComboboxSelected>>', on_log_level_change)
+
+    # Help text for log levels
+    help_text = ttk.Label(
+        settings_frame,
+        text="• MINIMAL: Only summaries and errors\n"
+             "• NORMAL: Operations, results, errors (default)\n"
+             "• VERBOSE: Add progress per item\n"
+             "• DEBUG: Add full QBXML request/response",
+        font=('TkDefaultFont', 8),
+        foreground='gray',
+        justify='left'
+    )
+    help_text.pack(anchor='w', pady=(10, 0))
