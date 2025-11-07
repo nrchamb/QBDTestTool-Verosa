@@ -1,0 +1,12 @@
+1. Code Duplication & Consistency
+- The logic for reading UI inputs, validating parameters, performing customer lookup, and launching the worker thread is highly duplicated across invoice_actions.py, sales_receipt_actions.py, charge_actions.py, and transaction_actions.py.
+
+2. Monitoring Action Shadowing & Import
+- The local function name conflicts with the imported action creator, leading to poor readability and potential errors.
+- monitor_actions.py | The function set_expected_deposit_account(app) shadows the imported action creator set_expected_deposit_account from store. Also contains a redundant inner import.
+- Rename/Clean: Rename the function to handle_set_expected_deposit_account(app) to prevent shadowing and remove the redundant from store import set_expected_deposit_account as set_account_action line inside the function body.
+
+3. Efficiency: O(N) Lookups (Medium Priority)
+- Looking up Terms and Classes by iterating through a list every time a transaction is created is inefficient and clutters the action code.
+- Implement mapping for cleaner lookup/retention
+
